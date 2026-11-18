@@ -1466,7 +1466,10 @@ function openStaff(id, pre) {
     <div class="frow"><div class="fld"><label>Email</label><input id="sf_e" value="${esc(s.email)}" type="email"></div><div class="fld"><label>Phone</label><input id="sf_p" value="${esc(s.phone)}"></div></div>
     <div class="frow"><div class="fld"><label>Qualification</label><input id="sf_q" value="${esc(s.qualification || '')}" placeholder="e.g. MSc Hydrology"></div><div class="fld"><label>Joined (year)</label><input id="sf_j" value="${esc(s.joined || '')}" placeholder="e.g. 2014"></div></div>
     <div class="fld"><label>Responsibilities / about</label><textarea id="sf_b" placeholder="Main duties">${esc(s.bio || '')}</textarea></div>
-    ${id && s.userId ? `<div class="fld"><label>Portal access (login)</label><select id="sf_pa"><option value="staff" ${(S.perm[s.userId] || 'staff') === 'staff' ? 'selected' : ''}>Staff — updates own status; division members update progress</option><option value="admin" ${S.perm[s.userId] === 'admin' ? 'selected' : ''}>Admin — uploads expenditure, manages staff &amp; files</option></select></div>` : (id ? '<p class="muted" style="font-size:11.5px">This person has not signed in yet. Create their login in Supabase (Authentication → Users) with the same e-mail; they are linked automatically at first sign-in.</p>' : '')}
+    ${id && s.userId ? `<div class="fld"><label>Portal access (login)</label><select id="sf_pa"><option value="staff" ${(S.perm[s.userId] || 'staff') === 'staff' ? 'selected' : ''}>Staff — updates own status; division members update progress</option><option value="admin" ${S.perm[s.userId] === 'admin' ? 'selected' : ''}>Admin — uploads expenditure, manages staff &amp; files</option></select></div>` : (DEMO ? '' : `<div class="fopt" style="border-style:solid"><label style="display:flex;gap:8px;align-items:center;font-size:12.5px;font-weight:700;cursor:pointer"><input type="checkbox" id="sf_lg" style="width:auto" onchange="$('sf_lgb').style.display=this.checked?'block':'none'"> Create a portal login for this person</label>
+      <div id="sf_lgb" style="display:none;margin-top:10px"><div class="frow"><div class="fld"><label>Username</label><input id="sf_lu" autocomplete="off" placeholder="e.g. tenzin_khorlo"></div><div class="fld"><label>Temporary password</label><input id="sf_lp" autocomplete="off" placeholder="min. 6 characters"></div></div>
+      <div class="fld"><label>Access</label><select id="sf_lx"><option value="staff">Staff</option><option value="admin">Admin</option></select></div><div class="muted" style="font-size:11.5px">Tell the person the username and password; they can sign in straight away.</div></div></div>`)}
+    ${id && s.userId && !DEMO ? `<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn ghost sm" onclick="resetPw('${id}')">🔑 Reset password</button><button class="btn ghost sm" style="color:#d33" onclick="delLogin('${id}')">🗑 Delete login</button></div>` : ''}
     <p class="muted" style="font-size:11px;margin-top:10px;line-height:1.5">“Director” sits at the top of the organogram. Members with division “Under Director” report directly to the Director.</p>`,
     `${id ? `<button class="btn danger" style="margin-right:auto" onclick="delStaff('${id}')">Remove</button>` : ''}<button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveStaff('${id || ''}')">Save</button>`);
 }
@@ -1485,13 +1488,32 @@ async function saveStaff(id) {
   const clash = S.staff.find(x => x.id !== (old && old.id) && ((role === 'director' && x.role === 'director') || (role === 'chief' && x.role === 'chief' && x.division === div)));
   try {
     if (clash) { if (!confirm(`${clash.name} is currently the ${role === 'director' ? 'Director' : 'Chief of ' + DIVS[div].short}. Make ${clash.name} a regular member instead?`)) return; clash.role = 'member'; if (role === 'director') clash.division = 'UD'; await Repo.patch('portal_staff', clash.id, { staff_position:'member', division:clash.division }); }
-    if (old) { await Repo.put('portal_staff', stTo(rec)); Object.assign(old, rec); }
-    else { const row = stTo(rec); delete row.id; const saved = await Repo.add('portal_staff', row); S.staff.push(stFrom(saved)); }
+    if (old) { const fields = stTo(rec); delete fields.id; if (DEMO) await Repo.patch('portal_staff', old.id, fields); else { const { data, error } = await sb.from('portal_staff').update(fields).eq('id', old.id).select('id'); if (error) throw error; if (!data || !data.length) throw new Error('The database did not accept the change — you must be signed in as Admin (check your Portal access in Staff Information, or run supabase_ALL_IN_ONE.sql again).'); } Object.assign(old, rec); }
+    else { const row = stTo(rec); delete row.id; const saved = await Repo.add('portal_staff', row); const ns = stFrom(saved); S.staff.push(ns); rec.id = ns.id; }
+    const lg = $('sf_lg'); if (lg && lg.checked) { const sid = old ? old.id : rec.id; const { data: uid, error } = await sb.rpc('portal_create_user', { p_username:$('sf_lu').value, p_password:$('sf_lp').value, p_staff:sid, p_email:null, p_permission:$('sf_lx').value }); if (error) throw new Error('Staff saved, but the login could not be created: ' + error.message); const t = S.staff.find(x => x.id === sid); if (t) t.userId = uid; S.perm[uid] = $('sf_lx').value; }
     const pa = $('sf_pa'); if (old && old.userId && pa && pa.value !== (S.perm[old.userId] || 'staff')) { if (DEMO) { toast('Access change not available in demo'); } else { const { error } = await sb.rpc('portal_set_role', { p_user:old.userId, p_permission:pa.value }); if (error) throw error; S.perm[old.userId] = pa.value; } }
     closeModal(); updateUserChip(); renderAll(); toast('Staff saved');
   } catch (e) { toast('Could not save: ' + (e.message || e), 7000); }
 }
-async function delStaff(id) { const s = S.staff.find(x => x.id === id); if (!s || !confirm(`Remove ${s.name} from the organogram?`)) return; try { await Repo.del('portal_staff', id); S.staff = S.staff.filter(x => x.id !== id); if (UI.unit === id) closeUnit(true); closeModal(); renderAll(); toast('Removed'); } catch (e) { toast('Could not remove: ' + (e.message || e), 6000); } }
+async function delStaff(id) {
+  const s = S.staff.find(x => x.id === id); if (!s || !confirm(`Remove ${s.name} from the organogram?`)) return;
+  try {
+    if (s.userId && !DEMO && confirm(`${s.name} also has a portal login. Delete the login too?
+
+OK = delete login as well · Cancel = keep the login`)) { const { error } = await sb.rpc('portal_delete_user', { p_user:s.userId }); if (error) throw error; }
+    const { data, error } = DEMO ? { data:[1], error:await Repo.del('portal_staff', id).then(() => null) } : await sb.from('portal_staff').delete().eq('id', id).select('id');
+    if (error) throw error; if (!data || !data.length) throw new Error('The database did not remove this person — run supabase_accounts.sql and check you are signed in as Admin.');
+    S.staff = S.staff.filter(x => x.id !== id); if (UI.unit === id) closeUnit(true); closeModal(); renderAll(); toast('Removed');
+  } catch (e) { toast('Could not remove: ' + (e.message || e), 8000); }
+}
+async function delLogin(id) {
+  const s = S.staff.find(x => x.id === id); if (!s || !s.userId || !confirm(`Delete the portal login of ${s.name}? They will no longer be able to sign in. Their staff record stays.`)) return;
+  try { const { error } = await sb.rpc('portal_delete_user', { p_user:s.userId }); if (error) throw error; delete S.perm[s.userId]; s.userId = null; closeModal(); renderAll(); toast('Login deleted'); } catch (e) { toast('Could not delete: ' + (e.message || e), 8000); }
+}
+async function resetPw(id) {
+  const s = S.staff.find(x => x.id === id); if (!s || !s.userId) return; const pw = prompt(`New password for ${s.name} (min. 6 characters):`); if (!pw) return;
+  try { const { error } = await sb.rpc('portal_reset_password', { p_user:s.userId, p_password:pw }); if (error) throw error; toast('Password changed ✓'); } catch (e) { toast('Could not change: ' + (e.message || e), 8000); }
+}
 async function resetStaffSample() { if (!confirm('Replace ALL staff records with the sample organogram? Your staff list will be lost.')) return; try { await Repo.clear('portal_staff'); await Repo.addMany('portal_staff', sampleStaff().map(s => { const r = stTo(s); delete r.id; return r; })); await loadAll(); UI.unit = null; closeUnit(true); renderAll(); } catch (e) { toast('Failed: ' + (e.message || e), 6000); } }
 
 /* ═══════════════════ 3. PROGRESS — expenditure (Admin upload) + physical progress (division members) ═══════════════════ */
