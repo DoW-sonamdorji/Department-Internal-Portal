@@ -349,6 +349,9 @@ html[data-theme="dark"] .modal-h h3{color:var(--text-primary)}
 #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,40px);background:#0a1f3a;color:#fff;padding:10px 18px;border-radius:10px;font-size:13px;z-index:3000;opacity:0;transition:all .35s var(--ease);pointer-events:none;box-shadow:var(--sh-3);max-width:90vw}
 #toast.show{opacity:1;transform:translate(-50%,0)}
 html.theme-anim *,html.theme-anim *::before,html.theme-anim *::after{transition:background-color .4s ease,color .4s ease,border-color .4s ease!important}
+.fthumb .lthumb{width:100%;height:100%;object-fit:cover;object-position:top;display:block;background:#fff}.fthumb:has(.lthumb) .lfb,.prev-img.has-l .lfb{display:none}.fthumb.nolink .lfb{display:flex}.prev-img .lthumb{width:100%;max-height:60vh;object-fit:contain;object-position:top;background:#fff}.prev-img.nolink{display:none}
+.chart-card{min-width:0}@media(max-width:640px){.chart-card{padding:12px 10px}.chart-title{flex-wrap:wrap;gap:4px}}
+.fo-list{max-height:46vh;overflow:auto;border:1px solid var(--border);border-radius:10px;padding:4px}.fo-chk{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:8px;cursor:pointer;font-size:13px}.fo-chk:hover{background:var(--bg-panel)}.fo-chk input{margin-top:3px;width:18px;height:18px;flex:none}
 .chart-box{position:relative;height:300px}.chart-box.tall{height:430px}
 
 .wri-stage{position:relative;border-radius:16px;overflow:hidden;border:1.5px solid var(--border);box-shadow:var(--sh-3);background:#071a35;line-height:0}
@@ -368,6 +371,7 @@ html.theme-anim *,html.theme-anim *::before,html.theme-anim *::after{transition:
 .tl-rel{font-family:var(--font-mono);font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:var(--bg-card2);color:var(--text-secondary);white-space:nowrap}.tl-rel.soon{background:rgba(224,120,0,.14);color:var(--accent-orange)}
 @media (max-width:640px){.tl-row{grid-template-columns:48px 14px 1fr}.tl-card{flex-wrap:wrap}}
 @media (max-width:1100px){.grid2{grid-template-columns:1fr}.org-chiefs{gap:12px}}
+.grid2>*{min-width:0}@media (max-width:900px){.grid2.even{grid-template-columns:1fr}}
 @media (max-width:900px){
   #mobileMenuBtn{display:block}
   #sidebar{transform:translateX(-100%);transition:transform .3s var(--ease);width:260px;box-shadow:var(--sh-3)}
@@ -1095,6 +1099,8 @@ const Store = {
 };
 const OFF_RE = /\s*⟦OFF:([^⟧]+)⟧\s*$/;
 function offParse(n) { n = String(n || ''); const m = n.match(OFF_RE); return { note: n.replace(OFF_RE, ''), id: m ? m[1] : '' }; }
+const focEnc = (ids, names) => names.join(', ') + (ids.length > 1 ? ' ⟦IDS:' + ids.join(',') + '⟧' : '');
+const focDec = f => { if (!f) return { ids:[], name:'' }; const m = /⟦IDS:([^⟧]*)⟧/.exec(f.focal_name || ''); const ids = m ? m[1].split(',').filter(Boolean) : (f.staff_id ? [f.staff_id] : []); return { ids, name:String(f.focal_name || '').replace(/\s*⟦IDS:[^⟧]*⟧/, '') }; };
 function offEnc(note, id) { return String(note || '') + (id ? ' ⟦OFF:' + id + '⟧' : ''); }
 const stFrom = r => ({ id:r.id, userId:r.user_id, name:r.full_name, designation:r.designation || '', division:r.division, role:r.staff_position || 'member', email:r.email || '', phone:r.phone || '', qualification:r.qualification || '', joined:r.joined || '', bio:r.bio || '', photo:r.photo || '', status:r.status || 'in', outReason:r.out_reason || '', outNote:offParse(r.out_note).note, officiatingId:offParse(r.out_note).id, sort:r.sort_order || 0 });
 const stTo = s => ({ id:s.id, full_name:s.name, designation:s.designation, division:s.division, staff_position:s.role, email:s.email, phone:s.phone, qualification:s.qualification, joined:s.joined, bio:s.bio, photo:s.photo, status:s.status, out_reason:s.outReason, out_note:offEnc(s.outNote, s.officiatingId), sort_order:s.sort || 0 });
@@ -1435,7 +1441,7 @@ const isHead = s => !!s && (s.role === 'chief' || s.role === 'director');
 const offTitle = h => h.role === 'director' ? 'Director' : 'Chief, ' + DIVS[h.division].short;
 const officiatingOf = h => (isHead(h) && h.status === 'out' && h.officiatingId) ? staffById(h.officiatingId) : null;
 const actingHeadsFor = s => s ? S.staff.filter(h => isHead(h) && h.status === 'out' && h.officiatingId === s.id) : [];
-const offCandidates = h => S.staff.filter(x => x.id !== h.id && x.role === 'member' && x.division === (h.role === 'director' ? 'UD' : h.division));
+const offCandidates = h => h.role === 'director' ? S.staff.filter(x => x.id !== h.id && x.role === 'chief') : S.staff.filter(x => x.id !== h.id && x.role === 'member' && x.division === h.division);
 function offLine(h) { const o = officiatingOf(h); return o ? `<div class="rs" style="color:#6d3fc4;font-weight:700">⭐ Officiating: ${esc(o.name)}</div>` : ''; }
 function offRows(s) { let h = ''; actingHeadsFor(s).forEach(x => { h += `<b>Officiating</b><span>Acting ${esc(offTitle(x))} while ${esc(x.name)} is out of office</span>`; }); const o = officiatingOf(s); if (o) h += `<b>Officiating</b><span>${esc(o.name)}${o.designation ? ' — ' + esc(o.designation) : ''}</span>`; return h; }
 function statusChip(s, small) {
@@ -1512,7 +1518,7 @@ function openStatus(id) {
   const s = S.staff.find(x => x.id === id); if (!s) return; let v = s.status === 'out' ? 'out' : 'in';
   window._stv = v;
   const head = isHead(s), cands = head ? offCandidates(s) : [];
-  const offField = head ? `<div class="fld"><label>Officiating ${s.role === 'director' ? 'Director' : 'Chief'} — who will act while you are out</label><select id="st_o"><option value="">— Select a member —</option>${cands.map(c => `<option value="${c.id}" ${c.id === s.officiatingId ? 'selected' : ''} ${c.status === 'out' ? 'disabled' : ''}>${esc(c.name)} — ${esc(c.designation || '')}${c.status === 'out' ? ' (out of office)' : ''}</option>`).join('')}</select><div class="muted" style="font-size:11.5px;margin-top:4px">The officiating member can assign focal persons for the division’s activities, and shows as “Officiating” on the dashboard and profile until you are back in office.</div></div>` : '';
+  const offField = head ? `<div class="fld"><label>Officiating ${s.role === 'director' ? 'Director' : 'Chief'} — who will act while you are out</label><select id="st_o"><option value="">— Select ${s.role === 'director' ? 'a Chief' : 'a member'} —</option>${cands.map(c => `<option value="${c.id}" ${c.id === s.officiatingId ? 'selected' : ''} ${c.status === 'out' ? 'disabled' : ''}>${esc(c.name)} — ${esc(c.designation || '')}${c.status === 'out' ? ' (out of office)' : ''}</option>`).join('')}</select><div class="muted" style="font-size:11.5px;margin-top:4px">${s.role === 'director' ? 'Only a Chief can officiate as Director.' : 'The officiating member'} can assign focal persons for ${s.role === 'director' ? 'the Director’s office activities' : 'the division’s activities'}, and shows as “Officiating” on the dashboard and profile until you are back in office.</div></div>` : '';
   modal('Office status — ' + s.name, `<div class="seg" id="stSeg"><button class="in ${v === 'in' ? 'on' : ''}" onclick="stPick('in')">🟢 In office</button><button class="out ${v === 'out' ? 'on' : ''}" onclick="stPick('out')">🟠 Out of office</button></div>
     <div id="stOut" style="margin-top:14px;display:${v === 'out' ? 'block' : 'none'}"><div class="fld"><label>Reason</label><select id="st_r">${OUT_REASONS.map(r => `<option ${r === s.outReason ? 'selected' : ''}>${r}</option>`).join('')}</select></div><div class="fld"><label>Note (location / return date, optional)</label><input id="st_n" value="${esc(s.outNote || '')}" placeholder="e.g. Paro — back on Thursday"></div>${offField}</div>`,
     `<button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveStatus('${id}')">Save</button>`);
@@ -1670,7 +1676,7 @@ function buildActsFrom(snap, updates, assign) {
     if (!a) { const adm = r.prg === '213'; a = map[k] = { key:k, name:title(r.sactT), fic:r.fic, project:PROJECTS[r.fic] || r.fic, division:adm ? 'UD' : uiDiv(FIC_DIV[r.fic] || 'UNSPECIFIED'), noProgress:adm, budget:0, spent:0, obc:[] }; }
     a.budget = r3(a.budget + r.b); a.spent = r3(a.spent + r.e); a.obc.push(r);
   });
-  return Object.values(map).map(a => { const asg = am[a.key]; if (asg) a.division = uiDiv(asg.division); const u = lm[a.key]; const fo = fm[a.key]; a.focalId = fo ? fo.staff_id : null; a.focalName = fo ? fo.focal_name : ''; a.focalBy = fo ? fo.assigned_by : '';
+  return Object.values(map).map(a => { const asg = am[a.key]; if (asg) a.division = uiDiv(asg.division); const u = lm[a.key]; const fo = fm[a.key]; const fd = focDec(fo); a.focalIds = fd.ids; a.focalId = fd.ids[0] || null; a.focalName = fd.name; a.focalBy = fo ? fo.assigned_by : '';
     a.status = a.noProgress ? '—' : (u ? u.status : 'Not Started'); a.physical = a.noProgress ? null : (u ? Number(u.pct_physical) : 0); a.updatedAt = u ? u.created_at : null; a.updatedBy = u ? u.updated_by : null; a.remarks = u ? (u.remarks || '') : ''; return a; });
 }
 const actsF = () => ACTS().filter(a => UI.div === 'ALL' || a.division === UI.div);
@@ -1709,7 +1715,7 @@ function health(a) {
   if (!a.spent && !p) return ['Not started', 'none']; if (u - p > 20) return ['Spending ahead of work', 'warn']; if (p - u > 20) return ['Work ahead of spending', 'info']; return ['On track', 'good'];
 }
 /* who may do what */
-const canUpdateAct = a => { const s = me(); return !!s && !a.noProgress && !!a.focalId && a.focalId === s.id && a.status !== 'Completed'; };
+const canUpdateAct = a => { const s = me(); return !!s && !a.noProgress && !!a.focalId && (a.focalIds || []).includes(s.id) && a.status !== 'Completed'; };
 const focalDivs = () => { const m = me(), set = new Set(); if (!m) return []; if (m.role === 'chief') set.add(m.division); if (m.role === 'director') set.add('UD'); actingHeadsFor(m).forEach(h => set.add(h.role === 'director' ? 'UD' : h.division)); return DIV_KEYS.filter(k => set.has(k)); };
 const canFocalSection = () => focalDivs().length > 0;
 const canAssignFocal = a => { if (a.noProgress) return false; if (isAdmin()) return true; return focalDivs().includes(a.division); };
@@ -1721,7 +1727,7 @@ function renderProgress() {
   $('pgBadge').textContent = pgDivLabel(); const A = actsP(), T = sumA(A), snap = curSnap(), el = A.filter(a => !a.noProgress);
   const attn = el.filter(a => health(a)[1] === 'warn').length, m = me();
   $('pgNote').innerHTML = `<b>Expenditure report:</b> ${fDate(snap.reportDate)}${snap.id === 'empty' ? ' — none uploaded yet' : ''}. ` + (A.length ? `Nu. ${fm(T.spent)} M of Nu. ${fm(T.budget)} M used (<b>${T.util}%</b>); physical work about <b>${T.phys}%</b>. ${T.util - T.phys > 15 ? 'Spending is ahead of the work on the ground.' : T.phys - T.util > 15 ? 'Work is moving faster than spending.' : 'Spending and work are moving together.'} ${attn ? `<b>${attn}</b> ${attn === 1 ? 'activity needs' : 'activities need'} attention.` : ''}` : 'No activities for this selection.') +
-    `<br><span class="muted">${(() => { const mine = m ? ACTS().filter(a => a.focalId === m.id && !a.noProgress).length : 0, nof = el.filter(a => !a.focalId).length; return `Physical progress can be recorded only by the <b>focal person</b> of each activity, assigned by the Chief of the division.${m ? (mine ? ` You are the focal person for <b>${mine}</b> ${mine === 1 ? 'activity' : 'activities'}.` : '') : ' Your login is not linked to a staff record yet.'}${nof ? ` <b>${nof}</b> ${nof === 1 ? 'activity has' : 'activities have'} no focal person yet.` : ''}${isAdmin() ? ' Admin uploads the weekly Expenditure Report.' : ''}`; })()}</span>`;
+    `<br><span class="muted">${(() => { const mine = m ? ACTS().filter(a => (a.focalIds || []).includes(m.id) && !a.noProgress).length : 0, nof = el.filter(a => !a.focalId).length; return `Physical progress can be recorded only by the <b>focal person</b> of each activity, assigned by the Chief of the division.${m ? (mine ? ` You are the focal person for <b>${mine}</b> ${mine === 1 ? 'activity' : 'activities'}.` : '') : ' Your login is not linked to a staff record yet.'}${nof ? ` <b>${nof}</b> ${nof === 1 ? 'activity has' : 'activities have'} no focal person yet.` : ''}${isAdmin() ? ' Admin uploads the weekly Expenditure Report.' : ''}`; })()}</span>`;
   $('pgKpis').innerHTML = [['Total Budget', fm(T.budget), 'Nu. M', 'var(--accent-blue)', '💰', `${T.n} activities`], ['Expenditure', fm(T.spent), 'Nu. M', 'var(--accent-teal)', '🧾', `${T.util}% of budget`], ['Physical progress', T.phys, '%', 'var(--accent-green)', '🏗️', 'weighted by budget'], ['Completed', T.done + ' / ' + T.ne, '', 'var(--accent-cyan)', '✅', 'activities with progress reporting']]
     .map(k => `<div class="kpi-card" style="--ca:${k[3]}"><span class="kpi-icon">${k[4]}</span><div class="kpi-label">${k[0]}</div><div class="kpi-value">${k[1]}<small>${k[2]}</small></div><div class="kpi-sub">${k[5]}</div></div>`).join('');
   const ks = DIV_KEYS.filter(pgDivOk);
@@ -1730,18 +1736,18 @@ function renderProgress() {
     <div class="mbar"><div class="l"><span>Physical progress</span><b>${t.phys}%</b></div><div class="bar" style="--bc:var(--accent-green)"><div style="width:${Math.min(100, t.phys)}%"></div></div></div>
     <div class="muted" style="font-size:11px;margin-top:9px">Nu. ${fm(t.spent)} of ${fm(t.budget)} M</div></div>`; }).join('');
   const fics = Array.from(new Set(ACTS().map(a => a.fic))).sort(), m2 = me();
-  const focs = Array.from(new Map(ACTS().filter(a => a.focalId).map(a => [a.focalId, a.focalName])).entries()).sort((x, y) => x[1].localeCompare(y[1]));
+  const focs = Array.from(new Map(ACTS().flatMap(a => (a.focalIds || []).map(id => [id, (staffById(id) || {}).name || id]))).entries()).sort((x, y) => x[1].localeCompare(y[1]));
   msSync('msDiv', 'Division', DIV_KEYS.map(k => ({ v:k, t:DIVS[k].name })));
   msSync('msStatus', 'Status', STATUSES.map(s => ({ v:s, t:s })));
   msSync('msFocal', 'Focal person', [{ v:'mine', t:'Assigned to me' }, { v:'none', t:'No focal person' }].concat(focs.map(f => ({ v:'f:' + f[0], t:f[1] }))));
   msSync('msFic', 'Project (FIC)', fics.map(f => ({ v:f, t:`FIC ${f} · ${(PROJECTS[f] || '').slice(0, 40)}` })));
   const q = ($('pgSearch').value || '').toLowerCase(), fS = MS.msFocal || new Set();
-  const focOk = a => !fS.size || (fS.has('mine') && m2 && a.focalId === m2.id) || (fS.has('none') && !a.focalId && !a.noProgress) || (a.focalId && fS.has('f:' + a.focalId));
+  const focOk = a => !fS.size || (fS.has('mine') && m2 && (a.focalIds || []).includes(m2.id)) || (fS.has('none') && !a.focalId && !a.noProgress) || ((a.focalIds || []).some(id => fS.has('f:' + id)));
   const rows = A.filter(a => (!q || (a.name + a.project).toLowerCase().includes(q)) && msHas('msStatus', a.status) && msHas('msFic', a.fic) && focOk(a)).sort((x, y) => DIV_KEYS.indexOf(x.division) - DIV_KEYS.indexOf(y.division) || x.name.localeCompare(y.name));
   $('pgTable').innerHTML = rows.length ? `<table class="t resp"><thead><tr><th>Activity</th><th>Division</th><th>Focal person</th><th class="num">Budget (Nu. M)</th><th class="num">Expenditure</th><th>Spent</th><th>Physical</th><th>Status</th><th>Last update</th><th></th></tr></thead><tbody>${rows.map(a => {
     const u = pct(a.spent, a.budget), h = health(a), can = canUpdateAct(a), sk = a.status.replace(/ /g, '');
     return `<tr><td data-l="Activity"><div class="an">${esc(a.name)}</div><div class="ap">FIC ${esc(a.fic)} · ${esc((a.project || '').slice(0, 58))}</div>${a.remarks ? `<div class="ap">💬 ${esc(a.remarks)}</div>` : ''}</td><td data-l="Division"><span class="tag" style="color:${DIVS[a.division].color};border-color:${DIVS[a.division].color}">${esc(DIVS[a.division].short)}</span></td>
-    <td data-l="Focal person" style="font-size:12px">${a.noProgress ? '<span class="muted">—</span>' : a.focalName ? `<b>${esc(a.focalName)}</b>${me() && a.focalId === me().id ? ' <span class="tag s-InProgress">You</span>' : ''}` : '<span class="muted">Not assigned</span>'}</td>
+    <td data-l="Focal person" style="font-size:12px">${a.noProgress ? '<span class="muted">—</span>' : a.focalName ? `<b>${esc(a.focalName)}</b>${me() && (a.focalIds || []).includes(me().id) ? ' <span class="tag s-InProgress">You</span>' : ''}` : '<span class="muted">Not assigned</span>'}</td>
     <td class="num" data-l="Budget">${fm3(a.budget)}</td><td class="num" data-l="Expenditure">${fm3(a.spent)}</td><td class="pbar" data-l="Spent"><div class="bar" style="--bc:var(--accent-blue)"><div style="width:${Math.min(100, u)}%"></div></div><small>${u}%</small></td>
     <td class="pbar" data-l="Physical">${a.noProgress ? '<small class="muted">not tracked</small>' : `<div class="bar" style="--bc:var(--accent-green)"><div style="width:${Math.min(100, a.physical)}%"></div></div><small>${a.physical}%</small>`}</td>
     <td data-l="Status">${a.noProgress ? '<span class="muted">—</span>' : `<span class="tag s-${sk}">${esc(a.status)}</span>`}<div class="h-${h[1]}" style="font-weight:700;font-size:11px;margin-top:3px">${h[0]}</div></td>
@@ -1749,12 +1755,16 @@ function renderProgress() {
     <td class="act" style="white-space:nowrap">${can ? `<button class="btn sm" onclick="openProgress('${esc(a.key)}')">Update</button> ` : ''}${a.noProgress ? '' : `<button class="btn ghost sm" onclick="openHistory('${esc(a.key)}')">History</button>`}${canAssignFocal(a) ? ` <button class="icon-btn" title="Assign focal person" onclick="openFocal('${esc(a.key)}')">👤</button>` : ''}${isAdmin() ? ` <button class="icon-btn" title="Assign division" onclick="openAssign('${esc(a.key)}')">⇄</button>` : ''}</td></tr>`; }).join('')}</tbody></table>` : '<div class="empty"><div class="big">📭</div>No activities match.</div>';
   renderExpTab(); if (PG.tab === 'chart') renderPgCharts();
 }
+const isNarrow = () => window.innerWidth < 700;
 function renderPgCharts() {
-  const A = actsP().slice().sort((a, b) => b.budget - a.budget).slice(0, 12), c = chartColors(), lab = A.map(a => a.name.length > 24 ? a.name.slice(0, 22) + '…' : a.name);
-  mkChart('pgC1', { type:'bar', data:{ labels:lab, datasets:[{ label:'Budget', data:A.map(a => a.budget), backgroundColor:c.blue, borderRadius:5 }, { label:'Expenditure', data:A.map(a => a.spent), backgroundColor:c.teal, borderRadius:5 }] }, options:{ devicePixelRatio:Math.max(2, window.devicePixelRatio || 1), indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } }, scales:{ x:{ title:{ display:true, text:'Nu. million' } }, y:{ grid:{ display:false }, ticks:{ autoSkip:false, font:{ size:11 } } } } } });
+  const nar = isNarrow(), A = actsP().slice().sort((a, b) => b.budget - a.budget).slice(0, 12), c = chartColors(), mx = nar ? 16 : 24, lab = A.map(a => a.name.length > mx ? a.name.slice(0, mx - 2) + '…' : a.name);
+  const b1 = $('pgC1') && $('pgC1').parentElement; if (b1) b1.style.height = nar ? Math.max(260, A.length * 44 + 90) + 'px' : '';
+  const b2 = $('pgC2') && $('pgC2').parentElement; if (b2) b2.style.height = nar ? '300px' : '';
+  const b3 = $('pgC3') && $('pgC3').parentElement; if (b3) b3.style.height = nar ? '280px' : '320px';
+  mkChart('pgC1', { type:'bar', data:{ labels:lab, datasets:[{ label:'Budget', data:A.map(a => a.budget), backgroundColor:c.blue, borderRadius:5 }, { label:'Expenditure', data:A.map(a => a.spent), backgroundColor:c.teal, borderRadius:5 }] }, options:{ devicePixelRatio:Math.max(2, window.devicePixelRatio || 1), indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:nar ? 11 : 12 } } } }, scales:{ x:{ title:{ display:!nar, text:'Nu. million' }, ticks:{ maxTicksLimit:nar ? 4 : 8, font:{ size:nar ? 10 : 12 } } }, y:{ grid:{ display:false }, ticks:{ autoSkip:false, font:{ size:nar ? 10 : 11 } } } } } });
   renderCum();
   const cnt = STATUSES.map(s => actsP().filter(a => a.status === s).length);
-  mkChart('pgC2', { type:'doughnut', data:{ labels:STATUSES, datasets:[{ data:cnt, backgroundColor:[c.dim, c.blue, c.green, c.red], borderWidth:0 }] }, options:{ devicePixelRatio:Math.max(2, window.devicePixelRatio || 1), cutout:'62%', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } } });
+  mkChart('pgC2', { type:'doughnut', data:{ labels:STATUSES, datasets:[{ data:cnt, backgroundColor:[c.dim, c.blue, c.green, c.red], borderWidth:0 }] }, options:{ devicePixelRatio:Math.max(2, window.devicePixelRatio || 1), cutout:'62%', responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:nar ? 11 : 12 } } } } } });
 }
 function cumSeries() {
   const byDate = {}; S.snaps.filter(s => s.id !== 'empty').forEach(s => { const cur = byDate[s.reportDate]; if (!cur || String(s.uploadedAt) >= String(cur.uploadedAt)) byDate[s.reportDate] = s; });
@@ -1762,8 +1772,9 @@ function cumSeries() {
 }
 function renderCum() {
   const c = chartColors(), s = cumSeries(), lab = s.map(r => new Date(r.d + 'T12:00:00').toLocaleDateString('en-GB', { day:'2-digit', month:'short' }));
-  mkChart('pgC3', { type:'line', data:{ labels:lab, datasets:[{ label:'Cumulative expenditure', data:s.map(r => +r.spent.toFixed(3)), borderColor:'#e07800', backgroundColor:'rgba(224,120,0,.16)', fill:true, tension:.25, pointRadius:4, pointBackgroundColor:'#e07800', borderWidth:2.5 }, { label:'Budget', data:s.map(r => +r.budget.toFixed(3)), borderColor:c.blue, borderDash:[6, 5], pointRadius:0, borderWidth:2, fill:false }] }, options:{ devicePixelRatio:Math.max(2, window.devicePixelRatio || 1), responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ title:{ display:true, text:'Nu. million' }, beginAtZero:true }, x:{ grid:{ display:false } } } } });
+  mkChart('pgC3', { type:'line', data:{ labels:lab, datasets:[{ label:'Cumulative expenditure', data:s.map(r => +r.spent.toFixed(3)), borderColor:'#e07800', backgroundColor:'rgba(224,120,0,.16)', fill:true, tension:.25, pointRadius:4, pointBackgroundColor:'#e07800', borderWidth:2.5 }, { label:'Budget', data:s.map(r => +r.budget.toFixed(3)), borderColor:c.blue, borderDash:[6, 5], pointRadius:0, borderWidth:2, fill:false }] }, options:{ devicePixelRatio:Math.max(2, window.devicePixelRatio || 1), responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'bottom' } }, scales:{ y:{ title:{ display:!isNarrow(), text:'Nu. million' }, beginAtZero:true, ticks:{ maxTicksLimit:6, font:{ size:isNarrow() ? 10 : 12 } } }, x:{ grid:{ display:false }, ticks:{ maxRotation:isNarrow() ? 60 : 0, autoSkip:true, maxTicksLimit:isNarrow() ? 6 : 12, font:{ size:isNarrow() ? 10 : 12 } } } } } });
 }
+(() => { let w0 = window.innerWidth < 700, t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => { const n = window.innerWidth < 700; if (n !== w0) { w0 = n; try { if (typeof PG !== 'undefined' && PG.tab === 'chart') renderPgCharts(); } catch (e) {} } }, 250); }); })();
 /* update physical progress (division members) */
 function openProgress(key) {
   const a = ACTS().find(x => x.key === key); if (!a) return; if (!canUpdateAct(a)) return toast('Only the focal person assigned to this activity can update its progress.');
@@ -1787,28 +1798,32 @@ async function saveProgress(key) {
   } catch (e) { btn.disabled = false; btn.textContent = 'Save update'; toast('Could not save: ' + (e.message || e), 7000); }
 }
 /* focal person assignment (Chief of the division / Director for UD / Admin) */
+function focalChecks(a, pool, prefix) {
+  return pool.map(p => `<label class="fo-chk"><input type="checkbox" class="${prefix}" value="${p.id}" ${(a.focalIds || []).includes(p.id) ? 'checked' : ''}><span><b>${esc(p.name)}</b> <span class="muted">${esc(p.designation || '')}${p.status === 'out' ? ' · out of office' : ''}${p.userId || DEMO ? '' : ' · no login yet'}</span></span></label>`).join('');
+}
 function openFocal(key) {
   const a = ACTS().find(x => x.key === key); if (!a || !canAssignFocal(a)) return;
   const pool = S.staff.filter(s => s.division === a.division).sort((x, y) => (x.sort - y.sort) || x.name.localeCompare(y.name));
-  modal('Assign focal person', `<div class="kv" style="margin-bottom:14px"><b>Activity</b><span>${esc(a.name)}</span><b>Division</b><span>${esc(DIVS[a.division].name)}</span></div>
-    <div class="fld"><label>Focal person (the only one who can record physical progress)</label><select id="fo_s"><option value="">— No focal person —</option>${pool.map(s => `<option value="${s.id}" ${a.focalId === s.id ? 'selected' : ''}>${esc(s.name)} — ${esc(s.designation || '')}${s.userId || DEMO ? '' : ' (no login linked yet)'}</option>`).join('')}</select></div>
-    <div class="muted" style="font-size:11.5px">The person must have signed in once with their own username so the portal can link their login to this staff record.</div>`,
+  modal('Assign focal persons', `<div class="kv" style="margin-bottom:14px"><b>Activity</b><span>${esc(a.name)}</span><b>Division</b><span>${esc(DIVS[a.division].name)}</span></div>
+    <div class="fld"><label>Focal persons — tick one or more (each can record physical progress)</label><div class="fo-list">${focalChecks(a, pool, 'fo_c')}</div></div>
+    <div class="muted" style="font-size:11.5px">Each person must have signed in once with their own username so the portal can link their login to their staff record.</div>`,
     `<button class="btn ghost" onclick="closeModal()">Cancel</button><button class="btn" onclick="saveFocal('${esc(key)}')">Save</button>`);
 }
-async function saveFocal(key) {
-  const a = ACTS().find(x => x.key === key); if (!a || !canAssignFocal(a)) return toast('Not allowed.');
-  const sid = $('fo_s').value, st = S.staff.find(s => s.id === sid), ex = (S.focal || []).find(f => f.activity_key === key);
-  try {
-    if (!sid) { if (ex) { await Repo.del('portal_focal', ex.id); S.focal = S.focal.filter(f => f.id !== ex.id); } }
-    else {
-      const rec = { activity_key:key, activity_name:a.name, division:a.division, staff_id:sid, focal_name:st.name, assigned_by:ME.name };
-      if (ex) { await Repo.patch('portal_focal', ex.id, rec); Object.assign(ex, rec); }
-      else { const row = await Repo.add('portal_focal', { ...rec, assigned_by_id:DEMO ? 'demo' : ME.id }); (S.focal = S.focal || []).push(row); }
-    }
-    invalidateActs(); closeModal(); renderAll(); toast(sid ? 'Focal person assigned ✓' : 'Focal person removed');
-  } catch (e) { toast('Could not save: ' + (e.message || e), 7000); }
+async function writeFocal(key, ids) {
+  const a = ACTS().find(x => x.key === key); if (!a || !canAssignFocal(a)) { toast('Not allowed.'); return false; }
+  const ex = (S.focal || []).find(f => f.activity_key === key), sts = ids.map(id => S.staff.find(s => s.id === id)).filter(Boolean);
+  if (!sts.length) { if (ex) { await Repo.del('portal_focal', ex.id); S.focal = S.focal.filter(f => f.id !== ex.id); } return true; }
+  const rec = { activity_key:key, activity_name:a.name, division:a.division, staff_id:sts[0].id, focal_name:focEnc(sts.map(x => x.id), sts.map(x => x.name)), assigned_by:ME.name };
+  if (ex) { await Repo.patch('portal_focal', ex.id, rec); Object.assign(ex, rec); }
+  else { const row = await Repo.add('portal_focal', { ...rec, assigned_by_id:DEMO ? 'demo' : ME.id }); (S.focal = S.focal || []).push(row); }
+  return true;
 }
-/* ── Focal Assignment (Chief / officiating Chief) ── */
+async function saveFocal(key) {
+  const ids = [...document.querySelectorAll('.fo_c:checked')].map(x => x.value);
+  try { if (!(await writeFocal(key, ids))) return; invalidateActs(); closeModal(); renderAll(); toast(ids.length ? ids.length + ' focal person' + (ids.length > 1 ? 's' : '') + ' assigned ✓' : 'Focal persons removed'); }
+  catch (e) { toast('Could not save: ' + (e.message || e), 7000); }
+}
+/* Focal Assignment (Chief / officiating Chief) */
 function renderFocalSection() {
   const body = $('focalBody'); if (!body) return; const divs = focalDivs(), m = me();
   $('foBadge').textContent = divs.map(k => DIVS[k].short).join(' + ') || '—';
@@ -1817,22 +1832,12 @@ function renderFocalSection() {
   const q = ($('foSearch').value || '').toLowerCase(), only = $('foOnly').checked;
   body.innerHTML = divs.map(k => {
     const all = ACTS().filter(a => a.division === k && !a.noProgress), rows = all.filter(a => (!q || (a.name + ' ' + a.project).toLowerCase().includes(q)) && (!only || !a.focalId)).sort((x, y) => x.name.localeCompare(y.name));
-    const pool = S.staff.filter(s => s.division === k && s.role !== 'director').sort((x, y) => (x.sort - y.sort) || x.name.localeCompare(y.name)), withF = all.filter(a => a.focalId).length;
+    const withF = all.filter(a => a.focalId).length;
     return `<h4 style="margin:6px 0 8px;color:${DIVS[k].color}">${esc(DIVS[k].name)} <span class="tag" style="margin-left:6px">${withF} of ${all.length} have a focal person</span></h4>` +
-      (rows.length ? `<div style="overflow-x:auto"><table class="fo-tbl"><thead><tr><th>ACTIVITY</th><th>PROJECT (FIC)</th><th>BUDGET (NU. M)</th><th>PHYSICAL</th><th>FOCAL PERSON</th></tr></thead><tbody>${rows.map(a => `<tr class="${a.focalId ? '' : 'nofocal'}"><td><b>${esc(a.name)}</b></td><td>${esc(a.fic || '')}</td><td>${fm(a.budget)}</td><td>${a.physical}% · ${esc(a.status)}</td>
-        <td><select class="filter-select" style="width:auto" onchange="setFocalInline('${esc(a.key)}', this.value)"><option value="">— No focal person —</option>${pool.map(p => `<option value="${p.id}" ${a.focalId === p.id ? 'selected' : ''}>${esc(p.name)}${p.status === 'out' ? ' (out of office)' : ''}${p.userId || DEMO ? '' : ' · no login yet'}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table></div>`
+      (rows.length ? `<div style="overflow-x:auto"><table class="fo-tbl"><thead><tr><th>ACTIVITY</th><th>PROJECT (FIC)</th><th>BUDGET (NU. M)</th><th>PHYSICAL</th><th>FOCAL PERSONS</th></tr></thead><tbody>${rows.map(a => `<tr class="${a.focalId ? '' : 'nofocal'}"><td><b>${esc(a.name)}</b></td><td>${esc(a.fic || '')}</td><td>${fm(a.budget)}</td><td>${a.physical}% · ${esc(a.status)}</td>
+        <td>${a.focalName ? `<div style="font-size:12.5px;margin-bottom:5px">${esc(a.focalName)}</div>` : '<div class="muted" style="font-size:12px;margin-bottom:5px">Not assigned</div>'}<button class="btn ghost sm" onclick="openFocal('${esc(a.key)}')">👥 ${a.focalId ? 'Change' : 'Assign'}</button></td></tr>`).join('')}</tbody></table></div>`
         : '<div class="empty" style="padding:16px"><div class="big">✅</div>Nothing to show for this filter.</div>');
-  }).join('<div style="height:18px"></div>') + '<div class="muted" style="font-size:11.5px;margin-top:12px">Only the focal person you select can record physical progress for that activity. The person must have signed in once so the portal can link their login to their staff record.</div>';
-}
-async function setFocalInline(key, sid) {
-  const a = ACTS().find(x => x.key === key); if (!a || !canAssignFocal(a)) return toast('Not allowed.');
-  const st = S.staff.find(x => x.id === sid), ex = (S.focal || []).find(f => f.activity_key === key);
-  try {
-    if (!sid) { if (ex) { await Repo.del('portal_focal', ex.id); S.focal = S.focal.filter(f => f.id !== ex.id); } }
-    else { const rec = { activity_key:key, activity_name:a.name, division:a.division, staff_id:sid, focal_name:st.name, assigned_by:ME.name };
-      if (ex) { await Repo.patch('portal_focal', ex.id, rec); Object.assign(ex, rec); } else { const row = await Repo.add('portal_focal', { ...rec, assigned_by_id:DEMO ? 'demo' : ME.id }); (S.focal = S.focal || []).push(row); } }
-    invalidateActs(); renderAll(); toast(sid ? 'Focal person assigned ✓' : 'Focal person removed');
-  } catch (e) { toast('Could not save: ' + (e.message || e), 7000); renderAll(); }
+  }).join('<div style="height:18px"></div>') + '<div class="muted" style="font-size:11.5px;margin-top:12px">You can tick more than one focal person per activity; each of them can record physical progress. Each person must have signed in once so the portal can link their login to their staff record.</div>';
 }
 /* Overall Dashboard: latest physical-progress updates with remarks */
 function weekStart(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
@@ -1966,6 +1971,28 @@ const extOf = n => { n = n || ''; return (n.includes('.') ? n.split('.').pop() :
 const normUrl = u => { u = String(u || '').trim(); if (!u) return ''; if (!/^[a-z][a-z0-9+.-]*:/i.test(u)) u = 'https://' + u; return /^https?:\/\//i.test(u) ? u : ''; };
 const hostOf = u => { try { return new URL(u).hostname.replace(/^www\./, ''); } catch (e) { return u; } };
 const fsize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(0) + ' KB' : (b/1048576).toFixed(1) + ' MB';
+const VIEWABLE = ['pdf','png','jpg','jpeg','gif','webp','txt'];
+const isViewable = f => !f.link && VIEWABLE.includes(extOf(f.fileName));
+function linkThumbSrc(u) {
+  let m = /drive\.google\.com\/file\/d\/([\w-]+)/.exec(u) || /drive\.google\.com\/open\?(?:[^#]*&)?id=([\w-]+)/.exec(u) || /docs\.google\.com\/(?:document|spreadsheets|presentation)\/d\/([\w-]+)/.exec(u);
+  if (m) return 'https://drive.google.com/thumbnail?id=' + m[1] + '&sz=w480';
+  return 'https://s.wordpress.com/mshots/v1/' + encodeURIComponent(u) + '?w=480&h=640';
+}
+function linkFallback(el) { const d = el.closest('.fthumb,.prev-img'); if (d) { el.remove(); d.classList.add('nolink'); } }
+const linkThumbHTML = (f, alt) => `<img class="lthumb" loading="lazy" referrerpolicy="no-referrer" src="${esc(linkThumbSrc(f.link))}" alt="${alt}" onerror="linkFallback(this)">`;
+async function openFile(k, id) {
+  const f = S.files[k].find(x => x.id === id); if (!f) return;
+  if (f.link) return dlFile(k, id);
+  if (!isViewable(f)) return openPreview(k, id);
+  const e = extOf(f.fileName), w = window.open('', '_blank');
+  if (w) { try { w.document.title = f.title; w.document.body.style.cssText = 'font:15px sans-serif;display:grid;place-items:center;height:90vh;color:#555'; w.document.body.textContent = 'Opening ' + f.title + '…'; } catch (x) {} }
+  let blob; try { blob = await Store.get(FILE_BUCKET, f.path); } catch (x) { if (w) w.close(); return toast('Could not fetch the file: ' + (x.message || x), 6000); }
+  if (!blob) { if (w) w.close(); return toast('File data not found'); }
+  const mime = e === 'pdf' ? 'application/pdf' : e === 'txt' ? 'text/plain' : (f.mime && f.mime !== 'application/octet-stream' ? f.mime : 'image/' + (e === 'jpg' ? 'jpeg' : e));
+  const url = URL.createObjectURL(new Blob([blob], { type:mime }));
+  if (w) w.location.href = url; else { const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); }
+  setTimeout(() => URL.revokeObjectURL(url), 120000);
+}
 function renderLib(k) {
   const L = LIBS[k], st = UI.lib[k], root = $('sec-' + k), all = S.files[k];
   const cats = Array.from(new Set([...L.cats, ...all.map(f => f.category)].filter(Boolean)));
@@ -1976,17 +2003,17 @@ function renderLib(k) {
     <div class="lib-bar"><div class="search"><input id="q-${k}" value="${esc(st.q)}" placeholder="Search ${esc(L.title.toLowerCase())}…" oninput="UI.lib['${k}'].q=this.value;renderLib('${k}')"></div></div>
     <div class="chips"><button class="chip ${!st.cat ? 'active' : ''}" onclick="UI.lib['${k}'].cat='';renderLib('${k}')">All</button>${cats.map(c => `<button class="chip ${st.cat === c ? 'active' : ''}" onclick="UI.lib['${k}'].cat='${esc(c).replace(/'/g,"\\'")}';renderLib('${k}')">${esc(c)} <span class="muted">${all.filter(f => f.category === c).length}</span></button>`).join('')}</div>
     ${list.length ? `<div class="file-grid">${list.map((f,i) => { const isL = !!f.link, e = isL ? 'link' : extOf(f.fileName), col = isL ? '#2b8cf0' : (EXT_COLORS[e] || '#6b7a90'); return `<div class="file-card" style="--i:${i}">
-      <div class="fthumb ${f.tw && f.th && f.tw > f.th ? 'land' : ''}" style="--fc:${col}" onclick="openPreview('${k}','${f.id}')" title="Preview">${isL ? `<div class="nothumb"><div class="ftype" style="--fc:${col}">🔗</div><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary);padding:0 12px;word-break:break-all">${esc(hostOf(f.link))}</span></div>` : f.thumb ? `<img src="${f.thumb}" alt="First page of ${esc(f.title)}">` : `<div class="nothumb"><div class="ftype" style="--fc:${col}">${esc((e || 'file').slice(0,4).toUpperCase())}</div><span class="muted" style="font-size:11px">No preview available</span></div>`}<span class="fext">${esc((e || 'file').toUpperCase())}</span><span class="eye">👁 Preview</span></div>
-      <div class="finfo"><h4>${esc(f.title)}</h4>${f.category ? `<div><span class="tag">${esc(f.category)}</span></div>` : ''}${f.description ? `<div class="desc">${esc(f.description)}</div>` : ''}<div class="meta">${isL ? 'Web link' : fsize(f.size)} · ${new Date(f.uploadedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
-      <div class="fact"><button class="btn sm" onclick="dlFile('${k}','${f.id}')">${isL ? '↗ Open link' : '⬇ Download'}</button>${isMine(f) ? `<span style="display:flex;gap:4px;margin-left:auto"><button class="icon-btn" title="Edit" onclick="openFileEdit('${k}','${f.id}')">✎</button><button class="icon-btn del" title="Delete" onclick="delFile('${k}','${f.id}')">🗑</button></span>` : ''}</div></div></div>`; }).join('')}</div>`
+      <div class="fthumb ${f.tw && f.th && f.tw > f.th ? 'land' : ''}" style="--fc:${col}" onclick="openFile('${k}','${f.id}')" title="${isL || isViewable(f) ? 'Open' : 'Preview'}">${isL ? `${linkThumbHTML(f, 'First page of ' + esc(f.title))}<div class="nothumb lfb"><div class="ftype" style="--fc:${col}">🔗</div><span style="font-size:12.5px;font-weight:600;color:var(--text-secondary);padding:0 12px;word-break:break-all">${esc(hostOf(f.link))}</span></div>` : f.thumb ? `<img src="${f.thumb}" alt="First page of ${esc(f.title)}">` : `<div class="nothumb"><div class="ftype" style="--fc:${col}">${esc((e || 'file').slice(0,4).toUpperCase())}</div><span class="muted" style="font-size:11px">No preview available</span></div>`}<span class="fext">${esc((e || 'file').toUpperCase())}</span><span class="eye">${isL || isViewable(f) ? '↗ Open' : '👁 Preview'}</span></div>
+      <div class="finfo"><h4 style="cursor:pointer" onclick="openFile('${k}','${f.id}')">${esc(f.title)}</h4>${f.category ? `<div><span class="tag">${esc(f.category)}</span></div>` : ''}${f.description ? `<div class="desc">${esc(f.description)}</div>` : ''}<div class="meta">${isL ? 'Web link' : fsize(f.size)} · ${new Date(f.uploadedAt).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})}</div>
+      <div class="fact">${isL ? `<button class="btn sm" onclick="dlFile('${k}','${f.id}')">↗ Open link</button>` : isViewable(f) ? `<button class="btn sm" onclick="openFile('${k}','${f.id}')">↗ Open</button><button class="btn ghost sm" title="Download" onclick="dlFile('${k}','${f.id}')">⬇</button>` : `<button class="btn sm" onclick="dlFile('${k}','${f.id}')">⬇ Download</button>`}${isMine(f) ? `<span style="display:flex;gap:4px;margin-left:auto"><button class="icon-btn" title="Edit" onclick="openFileEdit('${k}','${f.id}')">✎</button><button class="icon-btn del" title="Delete" onclick="delFile('${k}','${f.id}')">🗑</button></span>` : ''}</div></div></div>`; }).join('')}</div>`
     : `<div class="panel-card empty"><div class="big">${all.length ? '🔎' : L.icon}</div>${all.length ? 'No files match your search.' : `Nothing has been added yet.<br>Click <b>Add file / link</b> to add the first one.`}</div>`}`;
   if (focus) { const i = $('q-' + k); i.focus(); i.setSelectionRange(i.value.length, i.value.length); }
 }
 function openPreview(k, id) {
   const f = S.files[k].find(x => x.id === id); if (!f) return; const e = extOf(f.fileName);
-  if (f.link) { modal(f.title, `<div class="kv"><b>Type</b><span>Web link</span><b>Address</b><span><a href="${esc(f.link)}" target="_blank" rel="noopener noreferrer">${esc(f.link)}</a></span><b>Category</b><span>${esc(f.category) || '—'}</span>${f.description ? `<b>About</b><span>${esc(f.description)}</span>` : ''}<b>Added</b><span>${new Date(f.uploadedAt).toLocaleString('en-GB')}</span></div>`, `<button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" onclick="dlFile('${k}','${f.id}')">↗ Open link</button>`); return; }
-  modal(f.title, `${f.thumb ? `<div class="prev-img"><img src="${f.thumb}" alt="First page"></div>` : ''}<div class="kv"><b>Category</b><span>${esc(f.category) || '—'}</span><b>File</b><span>${esc(f.fileName)}</span><b>Format</b><span>${esc((e || 'file').toUpperCase())} · ${fsize(f.size)}</span><b>Uploaded</b><span>${new Date(f.uploadedAt).toLocaleString('en-GB')}</span>${f.description ? `<b>About</b><span>${esc(f.description)}</span>` : ''}</div>`,
-    `<button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" onclick="dlFile('${k}','${f.id}')">⬇ Download</button>`);
+  if (f.link) { modal(f.title, `<div class="prev-img">${linkThumbHTML(f, 'First page')}</div><div class="kv"><b>Type</b><span>Web link</span><b>Address</b><span><a href="${esc(f.link)}" target="_blank" rel="noopener noreferrer">${esc(f.link)}</a></span><b>Category</b><span>${esc(f.category) || '—'}</span>${f.description ? `<b>About</b><span>${esc(f.description)}</span>` : ''}<b>Added</b><span>${new Date(f.uploadedAt).toLocaleString('en-GB')}</span></div>`, `<button class="btn ghost" onclick="closeModal()">Close</button><button class="btn" onclick="dlFile('${k}','${f.id}')">↗ Open link</button>`); return; }
+  modal(f.title, `${f.thumb ? `<div class="prev-img" ${isViewable(f) ? `style="cursor:pointer" onclick="openFile('${k}','${f.id}')" title="Open"` : ''}><img src="${f.thumb}" alt="First page"></div>` : ''}<div class="kv"><b>Category</b><span>${esc(f.category) || '—'}</span><b>File</b><span>${esc(f.fileName)}</span><b>Format</b><span>${esc((e || 'file').toUpperCase())} · ${fsize(f.size)}</span><b>Uploaded</b><span>${new Date(f.uploadedAt).toLocaleString('en-GB')}</span>${f.description ? `<b>About</b><span>${esc(f.description)}</span>` : ''}</div>`,
+    `<button class="btn ghost" onclick="closeModal()">Close</button>${isViewable(f) ? `<button class="btn ghost" onclick="dlFile('${k}','${f.id}')">⬇ Download</button><button class="btn" onclick="openFile('${k}','${f.id}')">↗ Open</button>` : `<button class="btn" onclick="dlFile('${k}','${f.id}')">⬇ Download</button>`}`);
   $('modal').style.maxWidth = '640px';
 }
 
